@@ -11,11 +11,15 @@ platform:
   os: linux
   arch: amd64
 
+workspace:
+  path: /home/circleci/project/
+
 steps:
 - name: prepare
   image: cimg/android:2022.03.1-ndk
   environment:
     TEST: 1
   commands:
+    - sudo apt update && sudo apt -y install swig clang-12
     - ./build-linux.sh
 
