@@ -1,0 +1,21 @@
+---
+kind: pipeline
+type: docker
+name: linux
+
+trigger:
+  event: 
+    - tag
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: prepare
+  image: cimg/android:2022.03.1-ndk
+  environment:
+    TEST: 1
+  commands:
+    - ./build-linux.sh
+

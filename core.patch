@@ -1,0 +1,293 @@
+diff --git a/deps/lib-versions b/deps/lib-versions
+index 51a199f..9b53547 100644
+--- a/deps/lib-versions
++++ b/deps/lib-versions
+@@ -1,5 +1,7 @@
+ export ASIO_VERSION=asio-1-19-2
++# export ASIO_VERSION=asio-1-22-1
+ export ASIO_CSUM=5ee191aee825dfb1325cbacf643d599b186de057c88464ea98f1bae5ba4ff47a
++# export ASIO_CSUM=30cb54a5de5e465d10ec0c2026d6b5917f5e89fffabdbabeb1475846fc9a2cf0
+ 
+ export LZ4_VERSION=lz4-1.8.3
+ export LZ4_CSUM=33af5936ac06536805f9745e0b6d61da606a1f8b4cc5c04dd3cbaca3b9b4fc43
+@@ -7,6 +9,9 @@ export LZ4_CSUM=33af5936ac06536805f9745e0b6d61da606a1f8b4cc5c04dd3cbaca3b9b4fc43
+ export MBEDTLS_VERSION=mbedtls-2.7.19
+ export MBEDTLS_CSUM=9a6e0b0386496fae6863e41968eb308034a74008e775a533750af483a38378d0
+ 
++# export MBEDTLS_VERSION=mbedtls-2.28.0
++# export MBEDTLS_CSUM=6519579b836ed78cc549375c7c18b111df5717e86ca0eeff4cb64b2674f424cc
++
+ export JSONCPP_VERSION=1.8.4
+ export JSONCPP_CSUM=c49deac9e0933bcb7044f08516861a2d560988540b23de2ac1ad443b219afdb6
+ 
+diff --git a/deps/lz4/build-lz4 b/deps/lz4/build-lz4
+index 8b34f78..f70c4c2 100755
+--- a/deps/lz4/build-lz4
++++ b/deps/lz4/build-lz4
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env bash
+ 
++set -x
+ set -e
+ if [ -z "$O3" ]; then
+     echo O3 var must point to ovpn3 tree
+diff --git a/deps/mbedtls/build-mbedtls b/deps/mbedtls/build-mbedtls
+index 8cc26ef..df7b44b 100755
+--- a/deps/mbedtls/build-mbedtls
++++ b/deps/mbedtls/build-mbedtls
+@@ -59,13 +59,13 @@ if [ "x$NO_BUILD" == x1 ]; then
+    exit 0
+ fi
+ 
+-if [[ "x$TARGET" == xlinux* || "x$TARGET" == xosx* ]]; then
+-    # run unit tests and then clean
+-    echo RUNNING CHECK
+-    make check
+-    echo CLEANING
+-    make clean
+-fi
++# if [[ "x$TARGET" == xlinux* || "x$TARGET" == xosx* ]]; then
++#     # run unit tests and then clean
++#     echo RUNNING CHECK
++#     make check
++#     echo CLEANING
++#     make clean
++# fi
+ 
+ echo BUILDING
+ 
+diff --git a/javacli/build-android b/javacli/build-android
+index 0ea3a16..8cf9ac3 100755
+--- a/javacli/build-android
++++ b/javacli/build-android
+@@ -2,6 +2,7 @@
+ # generate expire time in python: time.mktime((2012, 5, 1, 0, 0, 0, 0, 0, -1))
+ #    -DAPP_EXPIRE_TIME=1364796000 \
+ set -e
++set -x
+ 
+ if [ -z "$O3" ]; then
+     echo O3 var must point to ovpn3 tree
+@@ -31,7 +32,7 @@ fi
+ echo SWIG
+ swig -c++ -java -package $pkg -I$O3/core/client -I$O3/core ovpncli.i
+ 
+-TARGETS=${TARGETS:-android-a7a android-a8a android-x86}
++TARGETS=${TARGETS:-android-a7a android-a8a android-x86 android-x86_64}
+ 
+ for TARGET in $TARGETS; do
+ 
+@@ -91,12 +92,20 @@ $GPP_CMD \
+     $PLATFORM_FLAGS \
+     $OTHER_COMPILER_FLAGS \
+     $opt2 $LIB_FPIC \
++    $ssl_def \
++    -DUSE_ASIO \
++    -DASIO_STANDALONE \
++    -DASIO_NO_DEPRECATED \
++    -DHAVE_LZ4 \
++    -DOPENVPN_ALLOW_INSECURE_CERTPROFILE \
++    -DASIO_HAS_STD_STRING_VIEW \
+     -fno-strict-aliasing \
+     -Wall \
+     $vis1 $vis2 \
+     -I$O3/core/client \
+     -I$O3/core \
+     $common \
++    -I$DEP_DIR/asio/asio/include \
+     $ssl_libdir \
+     -L$DEP_DIR/lz4/lz4-$PLATFORM/lib \
+     ovpncli_wrap.cxx \
+@@ -111,7 +120,7 @@ $GPP_CMD \
+ 
+ if [ "$DEBUG_BUILD" != "1" ]; then
+     echo STRIP $ABI
+-    strip libovpncli.so
++    strip libovpncli.so || echo "unstripped"
+ fi
+ 
+ mkdir -p build/libs/$ABI
+@@ -120,7 +129,7 @@ rm ovpncli.o
+ done
+ 
+ mv ovpncli_wrap.cxx ovpncli_wrap.h ovpncli.java ovpncliJNI.java SWIGTYPE_*.java ClientAPI_*.java build/
+-git clean -q -fX .
+ 
+ tar -czf android-core-build.tgz build
+ mv android-core-build.tgz $O3/
++git clean -q -fX .
+diff --git a/scripts/linux/build-all b/scripts/linux/build-all
+index 3930e1e..c250fd9 100755
+--- a/scripts/linux/build-all
++++ b/scripts/linux/build-all
+@@ -1,13 +1,14 @@
+ #!/usr/bin/env bash
+ set -e
+ set -u
++set -x
+ if [ -z "${O3:-}" ]; then
+     echo O3 var must point to ovpn3 tree ; exit 1
+ fi
+ export DEP_DIR="${DEP_DIR:-$HOME/linux}"
+ export TARGET="${TARGET:-linux}"
+ cd "$DEP_DIR"
+-rm -rf asio* boost* lz4* lzo* minicrypto openssl* polarssl* snappy*
++rm -rf asio* boost* lz4-* lzo* minicrypto openssl* polarssl* snappy*
+ echo "******* ASIO"
+ "$O3"/core/deps/asio/build-asio
+ echo "******* xxHash"
+diff --git a/scripts/linux/build-lz4 b/scripts/linux/build-lz4
+index 956fb56..23ce47b 100755
+--- a/scripts/linux/build-lz4
++++ b/scripts/linux/build-lz4
+@@ -8,7 +8,5 @@ if [ -z "$DEP_DIR" ]; then
+     exit 1
+ fi
+ cd $DEP_DIR
+-rm -rf lz4
+-mkdir lz4
+ TARGET=${TARGET:-linux} $O3/core/deps/lz4/build-lz4
+ exit 0
+diff --git a/scripts/linux/build-mbedtls b/scripts/linux/build-mbedtls
+index de355db..df9f358 100755
+--- a/scripts/linux/build-mbedtls
++++ b/scripts/linux/build-mbedtls
+@@ -8,7 +8,6 @@ if [ -z "$DEP_DIR" ]; then
+     exit 1
+ fi
+ cd $DEP_DIR
+-rm -rf mbedtls
+ 
+ if [ "$LINK_MODE" = "shared" ]; then
+     SHARED=1
+diff --git a/vars/vars-android-a7a b/vars/vars-android-a7a
+index ac72bf1..19bd442 100644
+--- a/vars/vars-android-a7a
++++ b/vars/vars-android-a7a
+@@ -6,10 +6,16 @@ export OTHER_COMPILER_FLAGS=""
+ export CXX_COMPILER_FLAGS="-std=c++1y"
+ export LIB_OPT_LEVEL="-O3"
+ export LIB_FPIC="-fPIC"
+-export TC=$DEP_DIR/tc-arm
+-export PLATFORM_FLAGS="-D__LP32__ -march=armv7-a -mthumb -fomit-frame-pointer --sysroot=$TC/sysroot"
+-export GPP_CMD="$TC/bin/arm-linux-androideabi-g++"
+-export GCC_CMD="$TC/bin/arm-linux-androideabi-gcc"
++export TC="$HOME/android-sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/linux-x86_64"
++export PLATFORM_FLAGS="-D__LP32__ -march=armv7-a -mthumb -fomit-frame-pointer --sysroot=$TC/sysroot -D__ANDROID__"
++export CTARGET=armv7a-linux-androideabi
++export API=21
++export CLINKDIR="$TC/sysroot/usr/lib/arm-linux-androideabi/${API}"
++export GPP_CMD="$TC/bin/${CTARGET}${API}-clang++"
++export GCC_CMD="$TC/bin/${CTARGET}${API}-clang"
++export AR_CMD="$TC/bin/llvm-ar rcs"
++export RANLIB_CMD=$TC/bin/llvm-ranlib
++export STRIP_CMD=$TC/bin/llvm-strip
+ 
+ [ -z "$VARS_SAVE_PATH" ] && VARS_SAVE_PATH="$PATH"
+ export PATH="$TC/bin:$TC/arm-linux-androideabi/bin:$VARS_SAVE_PATH"
+diff --git a/vars/vars-android-a8a b/vars/vars-android-a8a
+index 0f29a51..8b866dc 100644
+--- a/vars/vars-android-a8a
++++ b/vars/vars-android-a8a
+@@ -6,10 +6,16 @@ export OTHER_COMPILER_FLAGS=""
+ export CXX_COMPILER_FLAGS="-std=c++1y"
+ export LIB_OPT_LEVEL="-O3"
+ export LIB_FPIC="-fPIC"
+-export TC=$DEP_DIR/tc-arm64
+-export PLATFORM_FLAGS="-march=armv8-a -fomit-frame-pointer --sysroot=$TC/sysroot"
+-export GPP_CMD="$TC/bin/aarch64-linux-android-g++"
+-export GCC_CMD="$TC/bin/aarch64-linux-android-gcc"
++export TC="$HOME/android-sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/linux-x86_64"
++export PLATFORM_FLAGS="-march=armv8-a -fomit-frame-pointer --sysroot=$TC/sysroot -D__ANDROID__"
++export CTARGET=aarch64-linux-android
++export API=21
++export CLINKDIR="$TC/sysroot/usr/lib/${CTARGET}/${API}"
++export GPP_CMD="$TC/bin/${CTARGET}${API}-clang++"
++export GCC_CMD="$TC/bin/${CTARGET}${API}-clang"
++export AR_CMD="$TC/bin/llvm-ar rcs"
++export RANLIB_CMD=$TC/bin/llvm-ranlib
++export STRIP_CMD=$TC/bin/llvm-strip
+ 
+ [ -z "$VARS_SAVE_PATH" ] && VARS_SAVE_PATH="$PATH"
+ export PATH="$TC/bin:$TC/aarch64-linux-android/bin:$VARS_SAVE_PATH"
+diff --git a/vars/vars-android-x86 b/vars/vars-android-x86
+index 6f6c74f..6e69bf4 100644
+--- a/vars/vars-android-x86
++++ b/vars/vars-android-x86
+@@ -6,10 +6,16 @@ export OTHER_COMPILER_FLAGS=""
+ export CXX_COMPILER_FLAGS="-std=c++1y"
+ export LIB_OPT_LEVEL="-O3"
+ export LIB_FPIC="-fPIC"
+-export TC=$DEP_DIR/tc-x86
+-export PLATFORM_FLAGS="-D__LP32__ -march=i686 -fomit-frame-pointer --sysroot=$TC/sysroot"
+-export GPP_CMD="$TC/bin/i686-linux-android-g++"
+-export GCC_CMD="$TC/bin/i686-linux-android-gcc"
++export TC="$HOME/android-sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/linux-x86_64"
++export PLATFORM_FLAGS="-D__LP32__ -march=i686 -fomit-frame-pointer --sysroot=$TC/sysroot -D__ANDROID__"
++export CTARGET=i686-linux-android
++export API=21
++export CLINKDIR="$TC/sysroot/usr/lib/${CTARGET}/${API}"
++export GPP_CMD="$TC/bin/${CTARGET}${API}-clang++"
++export GCC_CMD="$TC/bin/${CTARGET}${API}-clang"
++export AR_CMD="$TC/bin/llvm-ar rcs"
++export RANLIB_CMD=$TC/bin/llvm-ranlib
++export STRIP_CMD=$TC/bin/llvm-strip
+ 
+ [ -z "$VARS_SAVE_PATH" ] && VARS_SAVE_PATH="$PATH"
+ export PATH="$TC/bin:$TC/i686-linux-android/bin:$VARS_SAVE_PATH"
+diff --git a/vars/vars-linux-clang b/vars/vars-linux-clang
+index cb80ca2..f9ff1e7 100644
+--- a/vars/vars-linux-clang
++++ b/vars/vars-linux-clang
+@@ -2,11 +2,18 @@ export JAVA_DIR=/usr/lib/jvm/java-7-openjdk-amd64
+ [ -z "$DEP_DIR" ] && export DEP_DIR=$HOME/linux-clang
+ export PLATFORM=linux
+ export DEBUG_BUILD=0
+-export OTHER_COMPILER_FLAGS="-Wno-unused-local-typedefs -Wno-unused-variable -Wno-shift-count-overflow -pthread"
++export OTHER_COMPILER_FLAGS="-Wno-unused-local-typedefs -Wno-unused-variable -Wno-shift-count-overflow -pthread -static"
+ export CXX_COMPILER_FLAGS="-std=c++14 -stdlib=libc++"
+ export LIB_OPT_LEVEL="-O3"
+ export LIB_FPIC="-fPIC"
+-export GPP_CMD=clang++
+-export GCC_CMD=clang
+-export AR_CMD="gcc-ar rc"
+-export RANLIB_CMD=gcc-ranlib
++#export PLATFORM_FLAGS="-DUSE_TUN_BUILDER -DOPENVPN_FORCE_TUN_NULL -DOPENVPN_DUMP_CONFIG -DOPENVPN_DEBUG_VERBOSE_ERRORS"
++export PLATFORM_FLAGS=""
++# export TC="$HOME/android-sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/linux-x86_64"
++# export GPP_CMD="$TC/bin/x86_64-linux-android21-clang++"
++# export GCC_CMD="$TC/bin/x86_64-linux-android21-clang"
++# export AR_CMD="$TC/bin/llvm-ar rc"
++# export RANLIB_CMD=$TC/bin/llvm-ranlib
++export GPP_CMD="clang++-12"
++export GCC_CMD="clang-12"
++export AR_CMD="llvm-ar-12 rc"
++export RANLIB_CMD=llvm-ranlib-12
+\ No newline at end of file
+diff --git a/vars/vars-android-x86_64 b/vars/vars-android-x86_64
+new file mode 100644
+index 0000000..668c14c
+--- /dev/null
++++ b/vars/vars-android-x86_64
+@@ -0,0 +1,21 @@
++[ -z "$DEP_DIR" ] && export DEP_DIR=$HOME/src/android
++export PLATFORM=android-x86_64
++export ABI=x86_64
++export DEBUG_BUILD=0
++export OTHER_COMPILER_FLAGS=""
++export CXX_COMPILER_FLAGS="-std=c++1y"
++export LIB_OPT_LEVEL="-O3"
++export LIB_FPIC="-fPIC"
++export TC="$HOME/android-sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/linux-x86_64"
++export PLATFORM_FLAGS="-D__LP64__ -march=x86-64 -fomit-frame-pointer --sysroot=$TC/sysroot -D__ANDROID__"
++export CTARGET=x86_64-linux-android
++export API=21
++export CLINKDIR="$TC/sysroot/usr/lib/${CTARGET}/${API}"
++export GPP_CMD="$TC/bin/${CTARGET}${API}-clang++"
++export GCC_CMD="$TC/bin/${CTARGET}${API}-clang"
++export AR_CMD="$TC/bin/llvm-ar rcs"
++export RANLIB_CMD=$TC/bin/llvm-ranlib
++export STRIP_CMD=$TC/bin/llvm-strip
++
++[ -z "$VARS_SAVE_PATH" ] && VARS_SAVE_PATH="$PATH"
++export PATH="$TC/bin:$TC/i686-linux-android/bin:$VARS_SAVE_PATH"
