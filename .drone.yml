@@ -1,6 +1,6 @@
 ---
 kind: pipeline
-type: docker
+type: kubernetes
 name: linux
 
 trigger:
@@ -47,7 +47,7 @@ steps:
     files: o3lib.go
     title: ${DRONE_TAG}
 
-    
+
 ---
 kind: secret
 name: release_token
