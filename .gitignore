@@ -1,8 +1,0 @@
-core/
-deps/
-dl/
-
-o3lib_wrap.*
-o3lib.go
-libo3lib-*.a
-ovpncli.o
