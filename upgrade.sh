@@ -1,7 +1,6 @@
 #!/bin/bash -e
 
-export GH_TOKEN="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"
-DRONE_TAG=v0.0.3
+#DRONE_TAG=v0.0.3
 
 rm -v *.a *.tar.gz *.h || echo ok
 
@@ -14,5 +13,5 @@ ls -l
 
 git add .
 git commit -a -m${DRONE_TAG}
-git tag v0.0.1
+git tag ${DRONE_TAG}
 git push origin main --tags
