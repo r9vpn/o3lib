@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 export GH_TOKEN="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"
-DRONE_TAG=v0.0.1-build0
+DRONE_TAG=v0.0.3
 
 rm -v *.a *.tar.gz *.h || echo ok
 
