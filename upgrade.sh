@@ -4,7 +4,7 @@
 
 rm -v *.a *.tar.gz *.h || echo ok
 
-gh release download ${DRONE_TAG} -p "*.tar.gz" -R r9vpn/openvpn3 --clobber
+./gh release download ${DRONE_TAG} -p "*.tar.gz" -R r9vpn/openvpn3 --clobber
 
 ls *.tar.gz | xargs -n1 -t tar -xzvf
 
